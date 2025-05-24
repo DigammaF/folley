@@ -2,13 +2,13 @@
 
 Folley is a Rust-based logic proof assistant. It provides a REPL interface for working with logical formulas, terms, and proof steps interactively.
 
-Folley limits itself to theories with a finite domain of discourse.
+Folley limits itself to theories with a finite domain of discourse. It relies on an extensive deductive apparatus.
 
 ## Prerequisites
 
 - [Rust](https://www.rust-lang.org/tools/install) (latest stable version recommended)
 
-## Building the Project
+## Building
 
 1. Clone the repository or download the source code.
 2. Open a terminal in the project root directory.
@@ -20,7 +20,7 @@ cargo build --release
 
 This will create an optimized executable in the `target/release` directory.
 
-## Running the Project
+## Running
 
 You can run the project directly with Cargo:
 
@@ -43,7 +43,7 @@ Or, after building, run the executable directly:
 
 When you run the program, you will enter an interactive REPL where you can:
 - View current theorems and goals
-- Enter commands to transform the current context
+- Enter commands to transform the context
 
 Theorems are what's been proven until now.
 
@@ -93,7 +93,78 @@ Commands:
 
 Follow the on-screen prompts for guidance.
 
+## Apparatus
+
+Take `A ∧ B` for instance. The deductive apparatus will transform it according to the following rules:
+
+- Both are `⊤`: evaluates to `⊤`
+- Either is `⊥`: evaluates to `⊥`
+- One is `⊤`: evaluates to the other one
+- If no rule applies, simply evaluates to `A ∧ B`
+
+The full apparatus can be read in `main.rs` at `Formula::evaluate`.
+
 ## Defining axioms, values, predicates, functions, and goals
+
+Defining axioms, values, predicates, functions and goals is done through modifying `main.rs`.
+
+Here's an example of defining something that looks like Peano's arithmetic, in order to prove that 1 + 1 = 2.
+
+```rust
+use folley::{Formula, Context};
+
+fn main() {
+    use crate::notation::*;
+
+    let mut scope = Scope::new();
+
+    // --- Variables ------------------------------
+	// a general purpose variable and its string representation
+    let x = scope.allocate_variable("X".into());
+
+    // --- Values ---------------------------------
+	// restraining ourselves to 'only' 30 naturals (way more than we need though)
+	// the closure describes how to name each value
+    let naturals = scope.allocate_values(30, |n| n.to_string());
+    
+    // --- Predicates -----------------------------
+	// the '=' predicate
+    let eq = scope.make_predicate(2, "Eq".into());
+
+    // --- Functions ------------------------------
+	// the successor function, computes +1
+    let successor = scope.make_function(
+        1, "S".into(),
+        Rc::new({
+            let naturals = naturals.clone();
+            move |terms| {
+                let term = terms.first().unwrap();
+                let index = naturals.iter().position(|natural| natural == term).expect("Can't process non natural");
+                let new_index = index + 1;
+                return naturals[new_index].clone();
+            }
+        })
+    );
+
+    // --- Theorems -------------------------------
+    let theorems = vec![
+        // --- Axioms -------------------------------------------------------
+        // ∀X.Eq(X, X)
+        for_all(&x, p(eq, vec![&x, &x])),
+    ];
+
+    // --- Goals -----------------------------------
+    let goals = vec![
+        // 2 = 1 + 1
+        // Eq(2, S(1))
+        p(eq, vec![&naturals[2], &f(successor, vec![&naturals[1]])]),
+    ];
+
+    // --------------------------------------------
+    let mut context = Context { theorems, goals, scope };
+    context.mainloop();
+}
+```
 
 ## Project Structure
 
