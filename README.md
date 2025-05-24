@@ -1,6 +1,6 @@
 # Folley
 
-Folley is a Rust-based logic proof assistant. It provides a REPL interface for working with logical formulas, terms, and proof steps interactively.
+Folley is a Rust-based First Order Logic proof assistant. It provides a REPL interface for working with logical formulas, terms, and proof steps interactively.
 
 Folley limits itself to theories with a finite domain of discourse. It relies on an extensive deductive apparatus.
 
