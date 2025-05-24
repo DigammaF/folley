@@ -166,6 +166,42 @@ fn main() {
 }
 ```
 
+Here's what proving this goal in the REPL looks like:
+
+```
+Theorems:
+  [0] ∀X.(Eq(X, X))
+Goals:
+  [0] Eq(2, S(1))
+(?) eval
+(...) applying Eval
+(+) evaluated
+Theorems:
+  [0] ∀X.(Eq(X, X))
+Goals:
+  [0] Eq(2, 2)
+(?) instantiate 0 with 2
+(...) applying Instantiate(0, [4])
+(+) instantiated with valuation {1: 4}
+Theorems:
+  [0] ∀X.(Eq(X, X))
+  [1] Eq(2, 2)
+Goals:
+  [0] Eq(2, 2)
+(?) rewrite with 1
+(...) applying Rewrite(1)
+(+) rewritten
+Theorems:
+  [0] ∀X.(Eq(X, X))
+  [1] Eq(2, 2)
+Goals:
+  [0] ⊤
+(?) qed
+(...) applying QED
+(+) ∎
+All is solved! ^-^
+```
+
 ## Project Structure
 
 - `src/main.rs`: Main source file containing all logic and REPL implementation
