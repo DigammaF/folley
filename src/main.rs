@@ -11,7 +11,7 @@ type Identifier = u8;
 #[derive(Clone, Debug, PartialEq, Eq, Default)]
 enum Term {
     #[default] True, False,
-    Variable(Identifier), Value(Identifier),
+    Variable(Identifier), Value(Domain),
     Function(Identifier, Vec<Term>)
 }
 
@@ -41,12 +41,12 @@ impl Display for Term {
 }
 
 impl Term {
-    fn bound(&self, valuation: &HashMap<Identifier, Identifier>) -> Term {
+    fn bound(&self, valuation: &HashMap<Identifier, Domain>) -> Term {
         match self {
             Term::True|Term::False|Term::Value(_) => self.clone(),
             Term::Variable(variable_identifier)
                 => valuation.get(variable_identifier).map_or_else(
-                    || self.clone(), |value_identifier| Term::Value(*value_identifier)
+                    || self.clone(), |value| Term::Value(value.clone())
                 ),
             Term::Function(identifier, terms)
                 => Term::Function(*identifier, terms.iter().map(|term| term.bound(valuation)).collect())
@@ -57,8 +57,8 @@ impl Term {
         match self {
             Term::True|Term::False|Term::Value(_) => Some(self.clone()),
             Term::Variable(identifier) => {
-                if let Some(value_identifier) = scope.get_value(identifier) {
-                    Some(Term::Value(value_identifier))
+                if let Some(value) = scope.get_value(identifier) {
+                    Some(Term::Value(value))
                 } else { None }
             },
             Term::Function(identifier, arguments) => {
@@ -506,7 +506,7 @@ impl Formula {
         )
     }
 
-    fn bound(&self, valuation: &HashMap<Identifier, Identifier>) -> Formula {
+    fn bound(&self, valuation: &HashMap<Identifier, Domain>) -> Formula {
         match self {
             Formula::Term(term) => Formula::Term(term.bound(valuation)),
             Formula::Predicate(identifier, terms)
@@ -598,8 +598,7 @@ impl Display for Predicate {
 #[derive(Clone, Debug)]
 struct Scope {
     last_allocated_id: Identifier,
-    bindings: HashMap<Identifier, Identifier>,
-    values: HashSet<Identifier>,
+    bindings: HashMap<Identifier, Domain>,
     variables: HashSet<Identifier>,
     functions: HashMap<Identifier, Function>,
     predicates: HashMap<Identifier, Predicate>,
@@ -614,16 +613,10 @@ impl Display for Scope {
             else { write!(f, "{}, ", id)?; }
         }
         writeln!(f, "")?;
-        writeln!(f, "  Values: ")?;
-        for id in &self.values {
-            if let Some(repr) = self.reprs.get(id) { write!(f, "{repr} ({id}), ")?; }
-            else { write!(f, "{}, ", id)?; }
-        }
-        writeln!(f, "")?;
         writeln!(f, "  Bindings: ")?;
         for (key, value) in &self.bindings {
             let key_repr = if let Some(repr) = self.reprs.get(key) { format!("{repr} ({key})") } else { format!("{key}") };
-            let value_repr = if let Some(repr) = self.reprs.get(value) { format!("{repr} ({value})") } else { format!("{value}") };
+            let value_repr = value.to_string();
             write!(f, "{key_repr} -> {value_repr}, ")?;
         }
         writeln!(f, "")?;
@@ -645,7 +638,7 @@ impl Scope {
     fn new() -> Self {
         Scope {
             last_allocated_id: 0,
-            bindings: HashMap::new(), values: HashSet::new(),
+            bindings: HashMap::new(),
             variables: HashSet::new(), functions: HashMap::new(),
             predicates: HashMap::new(),
             reprs: HashMap::new(), rev_reprs: HashMap::new()
@@ -663,13 +656,7 @@ impl Scope {
                     format!("${}", id)
                 }
             }
-            Term::Value(id) => {
-                if let Some(repr) = self.reprs.get(id) {
-                    format!("{}", repr)
-                } else {
-                    format!("#{}", id)
-                }
-            }
+            Term::Value(id) => { id.to_string() }
             Term::Function(id, args) => {
                 let name = if let Some(repr) = self.reprs.get(id) {
                     format!("{}", repr)
@@ -834,7 +821,6 @@ impl Scope {
         }
     }
 
-    fn is_value(&self, identifier: &Identifier) -> bool { self.values.contains(identifier) }
     fn is_variable(&self, identifier: &Identifier) -> bool { self.variables.contains(identifier) }
     fn is_function(&self, identifier: &Identifier) -> bool { self.functions.contains_key(identifier) }
     fn is_predicate(&self, identifier: &Identifier) -> bool { self.predicates.contains_key(identifier) }
@@ -853,19 +839,6 @@ impl Scope {
     }
 
     fn get_identifier(&self, repr: &str) -> Option<Identifier> { self.rev_reprs.get(repr).cloned() }
-
-    fn allocate_lambda_value(&mut self) -> Term {
-        let identifier = self.allocate();
-        self.values.insert(identifier);
-        return Term::Value(identifier);
-    }
-
-    fn allocate_value(&mut self, repr: String) -> Term {
-        let identifier = self.allocate();
-        self.values.insert(identifier);
-        self.bind_repr(identifier, repr);
-        return Term::Value(identifier);
-    }
 
     fn allocate_lambda_variable(&mut self) -> Term {
         let identifier = self.allocate();
@@ -888,14 +861,6 @@ impl Scope {
         (0..count).map(|n| self.allocate_variable(repr(n))).collect()
     }
 
-    fn allocate_lambda_values(&mut self, count: Identifier) -> Vec<Term> {
-        (0..count).map(|_| self.allocate_lambda_value()).collect()
-    }
-
-    fn allocate_values(&mut self, count: Identifier, repr: fn(Identifier) -> String) -> Vec<Term> {
-        (0..count).map(|n| self.allocate_value(repr(n))).collect()
-    }
-
     fn make_predicate(&mut self, arity: usize, repr: String) -> Identifier {
         let identifier = self.allocate();
         self.predicates.insert(identifier, Predicate { arity });
@@ -910,9 +875,8 @@ impl Scope {
         return identifier;
     }
 
-    fn bind(&mut self, variable: Identifier, value: Identifier) {
+    fn bind(&mut self, variable: Identifier, value: Domain) {
         self.variables.get(&variable).expect(&format!("Can only bind to variable, not {variable}"));
-        self.values.get(&value).expect(&format!("Can only bind value, not {value}"));
         self.bindings.insert(variable, value);
     }
 
@@ -921,8 +885,8 @@ impl Scope {
         self.bindings.remove(&variable);
     }
 
-    fn get_value(&self, variable: &Identifier) -> Option<Identifier> {
-        self.bindings.get(variable).copied()
+    fn get_value(&self, variable: &Identifier) -> Option<Domain> {
+        self.bindings.get(variable).cloned()
     }
 
     fn get_function(&self, identifier: &Identifier) -> &Function {
@@ -936,9 +900,9 @@ impl Scope {
 
 #[derive(Debug)]
 enum Operation {
-    Instantiate(usize, Vec<Identifier>),
+    Instantiate(usize, Vec<Domain>),
     ModusPonens(usize),
-    Name(Vec<Identifier>),
+    Name(Vec<Domain>),
     Rewrite(usize),
     Eval,
     QED,
@@ -946,15 +910,15 @@ enum Operation {
 }
 
 impl Operation {
-    fn parse(scope: &Scope, source: &str) -> Result<Self, String> {
+    fn parse(source: &str) -> Result<Self, String> {
         if let Some(captures) = INSTANTIATE_RE.captures(source) {
             
-            let mut values: Vec<Identifier> = Vec::new();
+            let mut values: Vec<Domain> = Vec::new();
 
-            for hit in REPR_RE.find_iter(&captures["values"]) {
-                if let Some(identifier) = scope.get_identifier(hit.as_str()) {
-                    values.push(identifier);
-                } else { return Err(format!("Unknown symbol {}", hit.as_str()).to_string()); }
+            for hit in VALUE_RE.find_iter(&captures["values"]) {
+                if let Ok(value) = hit.as_str().parse::<Domain>() {
+                    values.push(value);
+                } else { return Err(format!("Unable to parse {} to a domain value", hit.as_str()).to_string()); }
             }
 
             if let Ok(key) = captures["theorem"].parse::<usize>() {
@@ -969,11 +933,11 @@ impl Operation {
         
         } else if let Some(captures) = NAME_RE.captures(source) {
             
-            let mut values: Vec<Identifier> = Vec::new();
+            let mut values: Vec<Domain> = Vec::new();
 
-            for hit in REPR_RE.find_iter(&captures["values"]) {
-                if let Some(identifier) = scope.get_identifier(hit.as_str()) {
-                    values.push(identifier);
+            for hit in VALUE_RE.find_iter(&captures["values"]) {
+                if let Ok(value) = hit.as_str().parse::<Domain>() {
+                    values.push(value);
                 } else { return Err(format!("Unknown symbol {}", hit.as_str()).to_string()); }
             }
 
@@ -1003,10 +967,11 @@ impl Operation {
 
 static IDENTIFIER_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"\d+").unwrap());
 static REPR_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"\w+").unwrap());
+static VALUE_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"[^,]").unwrap());
 
-static INSTANTIATE_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"instantiate *(?<theorem>\d+) *(?:with *(?<values>\w+ *(?:, *\w+ *)*))?").unwrap());
+static INSTANTIATE_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"instantiate *(?<theorem>\d+) *(?:with *(?<values>[^,]+ *(?:, *[^,]+ *)*))?").unwrap());
 static MODUS_PONENS_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"modus ponens *(?<theorem>\d+)").unwrap());
-static NAME_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"name *(?<values>\w+ *(?:, *\w+ *)*)").unwrap());
+static NAME_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"name *(?<values>[^,]+ *(?:, *[^,]+ *)*)").unwrap());
 static REWRITE_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"rewrite with *(?<theorem>\d+)").unwrap());
 static EVAL_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"eval").unwrap());
 static QED_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"qed").unwrap());
@@ -1048,11 +1013,11 @@ impl Context {
             println!("{}", self);
             let command = read_text("(?) ");
 
-            match Operation::parse(&self.scope, &command) {
+            match Operation::parse(&command) {
                 Ok(operation) => {
                     println!("(...) applying {operation:?}");
 
-                    match self.apply(&operation) {
+                    match self.apply(operation) {
                         Ok(message) => println!("(+) {message}"),
                         Err(message) => println!("(!) {message}")
                     }
@@ -1075,15 +1040,15 @@ impl Context {
             .collect();
     }
 
-    fn apply(&mut self, operation: &Operation) -> Result<String, String> {
+    fn apply(&mut self, operation: Operation) -> Result<String, String> {
         match operation {
             Operation::Instantiate(theorem_key, values) => {
-                let mut theorem = self.theorems.get(*theorem_key).ok_or("invalid theorem key")?;
-                let mut valuation: HashMap<Identifier, Identifier> = HashMap::new();
+                let mut theorem = self.theorems.get(theorem_key).ok_or("invalid theorem key")?;
+                let mut valuation: HashMap<Identifier, Domain> = HashMap::new();
 
-                for value in values.iter() {
+                for value in values.into_iter() {
                     if let Formula::ForAll(variable, formula) = theorem {
-                        valuation.insert(*variable, *value);
+                        valuation.insert(*variable, value);
                         theorem = &*formula;
                     } else { return Err(format!("outermost Formula is not ForAll ({})", theorem.description()).to_string()); }
                 }
@@ -1092,7 +1057,7 @@ impl Context {
                 Ok(format!("instantiated with valuation {valuation:?}").to_string())
             }
             Operation::ModusPonens(theorem_key) => {
-                let theorem = self.theorems.get(*theorem_key).ok_or("invalid theorem key")?;
+                let theorem = self.theorems.get(theorem_key).ok_or("invalid theorem key")?;
 
                 if let Formula::Imply(a, b) = theorem.clone() {
                     self.theorems.push(*b);
@@ -1103,11 +1068,11 @@ impl Context {
             Operation::Name(values) => {
                 let mut goal = self.goals.pop().ok_or("no goal in this context")?;
                 let backup = goal.clone();
-                let mut valuation: HashMap<Identifier, Identifier> = HashMap::new();
+                let mut valuation: HashMap<Identifier, Domain> = HashMap::new();
 
-                for value in values.iter() {
+                for value in values.into_iter() {
                     if let Formula::ThereExist(variable, formula) = goal {
-                        valuation.insert(variable, *value);
+                        valuation.insert(variable, value);
                         goal = *formula;
                     } else {
                         self.goals.push(backup);
@@ -1120,7 +1085,7 @@ impl Context {
             }
             Operation::Rewrite(theorem_key) => {
                 let goal = self.goals.last_mut().ok_or("no goal in this context")?;
-                let theorem = self.theorems.get(*theorem_key).ok_or("invalid theorem key")?;
+                let theorem = self.theorems.get(theorem_key).ok_or("invalid theorem key")?;
 
                 if goal.rewrite(theorem) { Ok("rewritten".to_string()) }
                 else { Ok("nothing to rewrite".into()) }
@@ -1152,8 +1117,9 @@ impl Context {
 }
 
 mod notation {
-    use crate::{Formula, Identifier, Term};
+    use crate::{Formula, Identifier, Term, Domain};
 
+    pub fn value(v: Domain) -> Term { Term::Value(v) }
     pub fn term(t: &Term) -> Formula { Formula::Term(t.clone()) }
     pub fn imply(a: Formula, b: Formula) -> Formula { Formula::Imply(Box::new(a), Box::new(b)) }
     pub fn and(a: Formula, b: Formula) -> Formula { Formula::And(Box::new(a), Box::new(b)) }
@@ -1179,31 +1145,30 @@ mod notation {
     }
 }
 
+// working on positive integers
+type Domain = u128;
+
 fn main() {
     use crate::notation::*;
 
     let mut scope = Scope::new();
 
     // --- Variables ------------------------------
+    // a general purpose variable and its string representation
     let x = scope.allocate_variable("X".into());
-
-    // --- Values ---------------------------------
-    let naturals = scope.allocate_values(30, |n| n.to_string());
     
     // --- Predicates -----------------------------
+    // the '=' predicate
     let eq = scope.make_predicate(2, "Eq".into());
 
     // --- Functions ------------------------------
+    // the successor function, computes +1
     let successor = scope.make_function(
         1, "S".into(),
-        Rc::new({
-            let naturals = naturals.clone();
-            move |terms| {
-                let term = terms.first().unwrap();
-                let index = naturals.iter().position(|natural| natural == term).expect("Can't process non natural");
-                let new_index = index + 1;
-                return naturals[new_index].clone();
-            }
+        Rc::new(|terms| {
+            if let Term::Value(value) = terms.first().unwrap() {
+                Term::Value(*value + 1)
+            } else { panic!() }
         })
     );
 
@@ -1217,9 +1182,9 @@ fn main() {
 
     // --- Goals -----------------------------------
     let goals = vec![
-        // 2 == Successor(1)
+        // 2 = 1 + 1
         // Eq(2, S(1))
-        p(eq, vec![&naturals[2], &f(successor, vec![&naturals[1]])]),
+        p(eq, vec![&value(2), &f(successor, vec![&value(1)])]),
     ];
 
     // --------------------------------------------

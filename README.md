@@ -2,7 +2,7 @@
 
 Folley is a Rust-based First Order Logic proof assistant. It provides a REPL interface for working with logical formulas, terms, and proof steps interactively.
 
-Folley limits itself to theories with a finite domain of discourse. It relies on an extensive deductive apparatus.
+Folley relies on a built-in extensive deductive apparatus. The working Domain, axioms and goals are defined by the user.
 
 ## Prerequisites
 
@@ -108,10 +108,35 @@ The full apparatus can be read in `main.rs` at `Formula::evaluate`.
 
 Defining axioms, values, predicates, functions and goals is done through modifying `main.rs`.
 
-Here's an example of defining something that looks like Peano's arithmetic, in order to prove that 1 + 1 = 2.
+The `notation` module provides the following helper functions.
 
 ```rust
-use folley::{Formula, Context};
+
+fn value(v: Domain) -> Term
+fn term(t: &Term) -> Formula
+fn imply(a: Formula, b: Formula) -> Formula
+fn and(a: Formula, b: Formula) -> Formula
+// can also use a & b
+fn or(a: Formula, b: Formula) -> Formula
+// can also use a | b
+fn not(a: Formula) -> Formula
+// can also use !a
+fn for_all(variable: &Term, f: Formula) -> Formula
+fn there_exist(variable: &Term, f: Formula) -> Formula
+fn p(identifier: Identifier, arguments: Vec<&Term>) -> Formula
+// predicate
+fn f(identifier: Identifier, arguments: Vec<&Term>) -> Term
+// function
+
+```
+
+Here's an example of defining something that looks like Peano's arithmetic, in order to prove that 1 + 1 = 2.
+
+Please note that the working Domain must be a type that implements `Clone, Debug, PartialEq, Eq`.
+
+```rust
+// working on positive integers
+type Domain = u128;
 
 fn main() {
     use crate::notation::*;
@@ -119,30 +144,21 @@ fn main() {
     let mut scope = Scope::new();
 
     // --- Variables ------------------------------
-	// a general purpose variable and its string representation
+    // a general purpose variable and its string representation
     let x = scope.allocate_variable("X".into());
-
-    // --- Values ---------------------------------
-	// restraining ourselves to 'only' 30 naturals (way more than we need though)
-	// the closure describes how to name each value
-    let naturals = scope.allocate_values(30, |n| n.to_string());
     
     // --- Predicates -----------------------------
-	// the '=' predicate
+    // the '=' predicate
     let eq = scope.make_predicate(2, "Eq".into());
 
     // --- Functions ------------------------------
-	// the successor function, computes +1
+    // the successor function, computes +1
     let successor = scope.make_function(
         1, "S".into(),
-        Rc::new({
-            let naturals = naturals.clone();
-            move |terms| {
-                let term = terms.first().unwrap();
-                let index = naturals.iter().position(|natural| natural == term).expect("Can't process non natural");
-                let new_index = index + 1;
-                return naturals[new_index].clone();
-            }
+        Rc::new(|terms| {
+            if let Term::Value(value) = terms.first().unwrap() {
+                Term::Value(*value + 1)
+            } else { panic!() }
         })
     );
 
@@ -151,13 +167,14 @@ fn main() {
         // --- Axioms -------------------------------------------------------
         // ∀X.Eq(X, X)
         for_all(&x, p(eq, vec![&x, &x])),
+        // --- Situation ----------------------------------------------------
     ];
 
     // --- Goals -----------------------------------
     let goals = vec![
         // 2 = 1 + 1
         // Eq(2, S(1))
-        p(eq, vec![&naturals[2], &f(successor, vec![&naturals[1]])]),
+        p(eq, vec![&value(2), &f(successor, vec![&value(1)])]),
     ];
 
     // --------------------------------------------
@@ -181,8 +198,8 @@ Theorems:
 Goals:
   [0] Eq(2, 2)
 (?) instantiate 0 with 2
-(...) applying Instantiate(0, [4])
-(+) instantiated with valuation {1: 4}
+(...) applying Instantiate(0, [2])
+(+) instantiated with valuation {1: 2}
 Theorems:
   [0] ∀X.(Eq(X, X))
   [1] Eq(2, 2)
@@ -206,6 +223,10 @@ All is solved! ^-^
 
 - `src/main.rs`: Main source file containing all logic and REPL implementation
 - `Cargo.toml`: Rust project manifest
+
+## Use of Artificial Intelligence
+
+Parts of the code used to display the formulas on screen is AI generated, and tweeked by hand.
 
 ## License
 
