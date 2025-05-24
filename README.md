@@ -88,7 +88,7 @@ Commands:
 
 - `contradict`
 
-  Transforms the current goal by wrapping it in two negations
+  Transforms the current goal by wrapping it in two negations:
   `Some(...)` becomes `⊥⊥Some(...)`.
 
 Follow the on-screen prompts for guidance.
