@@ -108,10 +108,9 @@ The full apparatus can be read in `main.rs` at `Formula::evaluate`.
 
 Defining axioms, values, predicates, functions and goals is done through modifying `main.rs`.
 
-The `notation` module provides the following helper functions.
+The `notation` module provides the following helper functions, to make it convenient to construct common logic gates.
 
 ```rust
-
 fn value(v: Domain) -> Term
 fn term(t: &Term) -> Formula
 fn imply(a: Formula, b: Formula) -> Formula
@@ -127,7 +126,31 @@ fn p(identifier: Identifier, arguments: Vec<&Term>) -> Formula
 // predicate
 fn f(identifier: Identifier, arguments: Vec<&Term>) -> Term
 // function
+```
 
+However, all the 16 binary logic gates are implemented (alongside the corresponding apparatus transformations)
+and can be used by direct construction.
+
+```rust
+Term(Term),
+Not(Box<Formula>),
+And(Box<Formula>, Box<Formula>),
+Or(Box<Formula>, Box<Formula>),
+Imply(Box<Formula>, Box<Formula>),
+Nimply(Box<Formula>, Box<Formula>),
+Nand(Box<Formula>, Box<Formula>),
+Nor(Box<Formula>, Box<Formula>),
+Xor(Box<Formula>, Box<Formula>),
+Nxor(Box<Formula>, Box<Formula>),
+A(Box<Formula>, Box<Formula>),
+B(Box<Formula>, Box<Formula>),
+NotA(Box<Formula>, Box<Formula>),
+NotB(Box<Formula>, Box<Formula>),
+Rimply(Box<Formula>, Box<Formula>),
+Nrimply(Box<Formula>, Box<Formula>),
+ForAll(Identifier, Box<Formula>),
+ThereExist(Identifier, Box<Formula>),
+Predicate(Identifier, Vec<Term>)
 ```
 
 Here's an example of defining something that looks like Peano's arithmetic, in order to prove that 1 + 1 = 2.
