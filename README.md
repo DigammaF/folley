@@ -111,7 +111,7 @@ Take `A ∧ B` for instance. The deductive apparatus will transform it according
 - One is `⊤`: evaluates to the other one
 - If no rule applies, simply evaluates to `A ∧ B`
 
-The full apparatus can be read in `main.rs` at `Formula::evaluate`.
+The full apparatus can be read in `formula.rs` at `Formula::evaluate`.
 
 ## Defining axioms, values, predicates, functions, and goals
 
@@ -250,11 +250,6 @@ Goals:
 (+) ∎
 All is solved! ^-^
 ```
-
-## Project Structure
-
-- `src/main.rs`: Main source file containing all logic and REPL implementation
-- `Cargo.toml`: Rust project manifest
 
 ## Use of Artificial Intelligence
 
