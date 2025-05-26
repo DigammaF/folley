@@ -54,7 +54,7 @@ When there are no more goals, the initial goal(s) can be considered proved.
 Commands:
 - `instantiate <theorem> with <value>`
 
-  Create a copy of a theorem with a variable replaced by a value.
+  Creates a copy of a theorem with a variable replaced by a value.
   
   For instance, `[0] ∀X.Some(X)`
   becomes `[0] ∀X.Some(X) [1] Some(v)`
@@ -67,17 +67,18 @@ Commands:
   Errors out if the outermost layer of the formula is not `∀`, or if the
   specified symbols are not valid values.
 
-- `modus ponens <theorem>`
+- `modus ponens <theorem|G>`
 
   If the theorem is of the form `A → B`, B is added to theorems and A to goals.
+  If `G` is supplied, applies to the current goal: A is added to theorems, and B to goals.
 
 - `rewrite with <theorem>`
 
-  Rewrite the current goal with respect to a given theorem.
+  Rewrites the current goal with respect to a given theorem.
 
 - `eval`
 
-  Change the current goal in two ways:
+  Changes the current goal in two ways:
   - Functions are evaluated
   - Deductive apparatus is applied
 
@@ -90,6 +91,14 @@ Commands:
 
   Transforms the current goal by wrapping it in two negations:
   `Some(...)` becomes `⊥⊥Some(...)`.
+
+- `combine <theorem_a> with <theorem_b>`
+
+  Introduces a rewritten version of theorem_a in theorems.
+
+- `simplify <theorem>`
+
+  Introduces an evaluated version of a theorem in theorems.
 
 Follow the on-screen prompts for guidance.
 
