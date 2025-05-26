@@ -1235,8 +1235,8 @@ fn main() {
     let eq_id = scope.make_predicate(2, "Eq".into());
     let eq = |a: Term, b: Term| { p(eq_id, vec![&a, &b]) };
 
-    let t_id = scope.make_predicate(1, "T".into());
-    let t = |a: Term| { p(t_id, vec![&a]) };
+    let even_id = scope.make_predicate(1, "Even".into());
+    let even = |a: Term| { p(even_id, vec![&a]) };
 
     // --- Functions ------------------------------
     // the successor function, computes +1
@@ -1310,13 +1310,20 @@ fn main() {
                 sum(product(var(x), var(y)), var(x))
             )
         )),
-        iff(t(value(2)), t(value(4))),
+        // ∀X.(∃Y.2Y = X) -> Even(X)
+        for_all(x,
+            imply(there_exist(y, eq(product(value(2), var(y)), var(x))),
+                even(var(x))
+            )
+        ),
         // --- Situation ----------------------------------------------------
     ];
 
     // --- Goals -----------------------------------
     let goals = vec![
-        imply(t(value(2)), t(value(4))),
+        imply(even(var(x)) & even(var(y)),
+            even(sum(var(x), var(y)))
+        )
     ];
 
     // --------------------------------------------
