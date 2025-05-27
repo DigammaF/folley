@@ -304,4 +304,8 @@ impl Scope {
     pub fn get_predicate(&self, identifier: &Identifier) -> &Predicate {
         self.predicates.get(identifier).expect(&format!("Unknown predicate: {identifier}"))
     }
+
+    pub fn parse_term(&self, source: &str) -> Result<Term, String> {
+        Term::from_parse(self, source)
+    }
 }
