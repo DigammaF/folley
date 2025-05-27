@@ -153,6 +153,10 @@ fn build_term(scope: &Scope, tokens: Vec<Token>) -> Result<Term, String> {
                         else if scope.is_function(&identifier) { func_stack.push(identifier); argument_stack.push(Vec::new()); }
                         else if scope.is_predicate(&identifier) { return Err(format!("Predicate ({identifier}) not allowed, expected Term")); }
                         else { return Err(format!("unknown identifier type: {identifier}")); }
+                    } else if let Ok(value) = text.parse::<Domain>() {
+                        argument_stack.last_mut()
+                            .expect(&format!("No ongoing context to put {value} into"))
+                            .push(Term::Value(value));
                     } else { return Err(format!("{text} could not be understood")); }
                 }
             }
