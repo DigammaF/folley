@@ -241,16 +241,29 @@ impl Scope {
     }
 
     pub fn bind_repr(&mut self, identifier: Identifier, repr: String) {
-        if let Some(existing_repr) = self.reprs.get(&identifier) { panic!("{repr} ({identifier}) already bound to {existing_repr}, cannot bind to {repr}"); }
+        if let Some(existing_repr) = self.reprs.get(&identifier) { panic!("{identifier} already bound to {existing_repr}, cannot bind to {repr}"); }
         self.reprs.insert(identifier, repr.clone());
         self.rev_reprs.insert(repr, identifier);
     }
 
+    pub fn set_id_for_repr(&mut self, repr: String, identifier: Identifier) {
+        if let Some(existing_id) = self.rev_reprs.get(&repr) { panic!("{repr} already bound to {existing_id}, cannot bind to {identifier}"); }
+        self.rev_reprs.insert(repr, identifier);
+    }
+
     pub fn get_identifier(&self, repr: &str) -> Option<Identifier> { self.rev_reprs.get(repr).cloned() }
+    pub fn get_repr(&self, identifier: &Identifier) -> Option<String> { self.reprs.get(identifier).cloned() }
 
     pub fn allocate_lambda_variable(&mut self) -> Term {
         let identifier = self.allocate();
         self.variables.insert(identifier);
+        return Term::Variable(identifier);
+    }
+
+    pub fn allocate_silent_variable(&mut self, name: &str) -> Term {
+        let identifier = self.allocate();
+        self.variables.insert(identifier);
+        self.reprs.insert(identifier, name.to_string());
         return Term::Variable(identifier);
     }
 
@@ -307,5 +320,21 @@ impl Scope {
 
     pub fn parse_term(&self, source: &str) -> Result<Term, String> {
         Term::from_parse(self, source)
+    }
+
+    pub fn forall<T: Fn(&Term) -> Formula>(&mut self, name: &str, fun: T) -> Formula {
+        let identifier = self.allocate();
+        self.variables.insert(identifier);
+        self.reprs.insert(identifier, name.to_string());
+        let variable = Term::Variable(identifier);
+        return Formula::ForAll(identifier, Box::new(fun(&variable)));
+    }
+
+    pub fn exist<T: Fn(&Term) -> Formula>(&mut self, name: &str, fun: T) -> Formula {
+        let identifier = self.allocate();
+        self.variables.insert(identifier);
+        self.reprs.insert(identifier, name.to_string());
+        let variable = Term::Variable(identifier);
+        return Formula::ThereExist(identifier, Box::new(fun(&variable)));
     }
 }

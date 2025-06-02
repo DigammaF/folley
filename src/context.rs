@@ -1,6 +1,6 @@
 use std::{collections::HashMap, fmt::{self, Display}, io::{stdin, stdout, Write}};
 
-use crate::{formula::{Formula, TRUE}, operation::Operation, scope::Scope, Domain, Identifier};
+use crate::{formula::{Formula, TRUE}, operation::Operation, scope::Scope, term::Term, Identifier};
 
 
 fn read_text(prompt: &str) -> String {
@@ -45,7 +45,7 @@ impl Context {
             if self.mutated { println!("{}", self); self.mutated = false; }
             let command = read_text("(?) ");
 
-            match Operation::parse(&command) {
+            match Operation::parse(&self.scope, &command) {
                 Ok(operation) => {
                     println!("(...) applying {operation:?}");
 
@@ -74,11 +74,11 @@ impl Context {
 
     fn apply(&mut self, operation: Operation) -> Result<String, String> {
         match operation {
-            Operation::Instantiate(theorem_key, values) => {
+            Operation::Instantiate(theorem_key, terms) => {
                 let mut theorem = self.theorems.get(theorem_key).ok_or(format!("invalid theorem key: {theorem_key}"))?;
-                let mut valuation: HashMap<Identifier, Domain> = HashMap::new();
+                let mut valuation: HashMap<Identifier, Term> = HashMap::new();
 
-                for value in values.into_iter() {
+                for value in terms.into_iter() {
                     if let Formula::ForAll(variable, formula) = theorem {
                         valuation.insert(*variable, value);
                         theorem = &*formula;
@@ -113,14 +113,14 @@ impl Context {
                     Err(text)
                 }
             }
-            Operation::Name(values) => {
+            Operation::Name(terms) => {
                 let mut goal = self.goals.pop().ok_or("no goal in this context")?;
                 let backup = goal.clone();
-                let mut valuation: HashMap<Identifier, Domain> = HashMap::new();
+                let mut valuation: HashMap<Identifier, Term> = HashMap::new();
 
-                for value in values.into_iter() {
+                for term in terms.into_iter() {
                     if let Formula::ThereExist(variable, formula) = goal {
-                        valuation.insert(variable, value);
+                        valuation.insert(variable, term);
                         goal = *formula;
                     } else {
                         self.goals.push(backup);
@@ -190,6 +190,21 @@ impl Context {
                 } else {
                     Ok("not evaluable".to_string())
                 }
+            }
+            Operation::Intro => {
+                let mut goal = self.goals.pop().ok_or("no goal in this context")?;
+                let mut variables: Vec<String> = vec![];
+
+                while let Formula::ForAll(identifier, inner) = goal {
+                    goal = *inner;
+                    variables.push(self.scope.format_term(&Term::Variable(identifier)));
+
+                    if let Some(repr) = self.scope.get_repr(&identifier) { self.scope.set_id_for_repr(repr, identifier); }
+                }
+
+                self.goals.push(goal);
+                if variables.len() > 0 { self.mutated = true; }
+                Ok(format!("introduced variables: {variables:?}"))
             }
         }
     }

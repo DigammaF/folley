@@ -1,50 +1,53 @@
 use once_cell::sync::Lazy;
 use regex::Regex;
 
-use crate::Domain;
+use crate::{scope::Scope, term::Term};
 
 
 static IDENTIFIER_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"\d+").unwrap());
 static REPR_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"\w+").unwrap());
-static VALUE_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"[^,]").unwrap());
+static VALUE_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"[^,]*").unwrap());
 
-static INSTANTIATE_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"instantiate *(?<theorem>\d+) *(?:with *(?<values>[^,]+ *(?:, *[^,]+ *)*))? *").unwrap());
+static INSTANTIATE_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"instantiate *(?<theorem>\d+) (?:with (?<values>(?: *[^,] *,?)+))?").unwrap());
 static MODUS_PONENS_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"modus ponens *(?<theorem>\d+|G) *").unwrap());
-static NAME_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"name *(?<values>[^,]+ *(?:, *[^,]+ *)*) *").unwrap());
+static NAME_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"name *(?<values>(?: *[^,]+ *,?)*) *").unwrap());
 static REWRITE_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"rewrite with *(?<theorem>\d+) *").unwrap());
 static EVAL_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"eval").unwrap());
 static QED_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"qed").unwrap());
 static CONTRADICT_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"contradict").unwrap());
 static COMBINE_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"combine *(?<a>\d+) *with *(?<b>\d+) *").unwrap());
 static SIMPLIFY_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"simplify *(?<theorem>\d+) *").unwrap());
+static INTRO_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"intro").unwrap());
 
 #[derive(Debug)]
 pub enum Operation {
-    Instantiate(usize, Vec<Domain>),
+    Instantiate(usize, Vec<Term>),
     ModusPonens(usize), ModusPonensGoal,
-    Name(Vec<Domain>),
+    Name(Vec<Term>),
     Rewrite(usize),
     Eval,
     QED,
     Contradict,
     Combine(usize, usize),
-    Simplify(usize)
+    Simplify(usize),
+    Intro
 }
 
 impl Operation {
-    pub fn parse(source: &str) -> Result<Self, String> {
+    pub fn parse(scope: &Scope, source: &str) -> Result<Self, String> {
         if let Some(captures) = INSTANTIATE_RE.captures(source) {
             
-            let mut values: Vec<Domain> = Vec::new();
+            let mut terms: Vec<Term> = Vec::new();
 
             for hit in VALUE_RE.find_iter(&captures["values"]) {
-                if let Ok(value) = hit.as_str().parse::<Domain>() {
-                    values.push(value);
-                } else { return Err(format!("Unable to parse {} to a domain value", hit.as_str()).to_string()); }
+                match scope.parse_term(hit.as_str()) {
+                    Err(err) => { return Err(format!("Unable to parse this as a term. '{}' yields '{err}'", hit.as_str())); }
+                    Ok(term) => { terms.push(term); }
+                }
             }
 
             if let Ok(key) = captures["theorem"].parse::<usize>() {
-                Ok(Operation::Instantiate(key, values))
+                Ok(Operation::Instantiate(key, terms))
             } else { Err(format!("Cannot parse {} as a key", &captures["theorem"]).to_string()) }
 
         } else if let Some(captures) = MODUS_PONENS_RE.captures(source) {
@@ -57,15 +60,16 @@ impl Operation {
         
         } else if let Some(captures) = NAME_RE.captures(source) {
             
-            let mut values: Vec<Domain> = Vec::new();
+            let mut terms: Vec<Term> = Vec::new();
 
             for hit in VALUE_RE.find_iter(&captures["values"]) {
-                if let Ok(value) = hit.as_str().parse::<Domain>() {
-                    values.push(value);
-                } else { return Err(format!("Unknown symbol {}", hit.as_str()).to_string()); }
+                match scope.parse_term(hit.as_str()) {
+                    Err(err) => { return Err(format!("Unable to parse this as a term. '{}' yields '{err}'", hit.as_str())); }
+                    Ok(term) => { terms.push(term); }
+                }
             }
 
-            Ok(Operation::Name(values))
+            Ok(Operation::Name(terms))
         
         } else if let Some(captures) = REWRITE_RE.captures(source) {
 
@@ -98,6 +102,10 @@ impl Operation {
             if let Ok(theorem) = captures["theorem"].parse::<usize>() {
                 Ok(Operation::Simplify(theorem))
             } else { Err(format!("Cannot parse {} as a key", &captures["theorem"]).to_string()) }
+
+        } else if INTRO_RE.is_match(&source) {
+
+            Ok(Operation::Intro)
 
         } else { Err("Couldn't parse source".to_string()) }
     }

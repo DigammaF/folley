@@ -55,12 +55,6 @@ fn main() {
 
     let mut scope = Scope::new();
 
-    // --- Variables ------------------------------
-    // a general purpose variable and its string representation
-    let x = &scope.allocate_variable("X".into());
-    let y = &scope.allocate_variable("Y".into());
-    let z = &scope.allocate_variable("Z".into());
-
     // --- Predicates -----------------------------
     // the '=' predicate
     let eq_id = scope.make_predicate(2, "Eq".into());
@@ -111,50 +105,94 @@ fn main() {
     let theorems = vec![
         // --- Axioms -------------------------------------------------------
         // ∀X.Eq(X, X)
-        for_all(x, eq(var(x), var(x))),
+        {
+            let x = &scope.allocate_silent_variable("X");
+            for_all(x, eq(var(x), var(x)))
+        },
         // ∀X.∀Y.Eq(X, Y) <-> Eq(Y, X)
-        for_all(x, for_all(y,
-            iff(eq(var(x), var(y)), eq(var(y), var(x)))
-        )),
+        {
+            let x = &scope.allocate_silent_variable("X");
+            let y = &scope.allocate_silent_variable("Y");
+            for_all(x, for_all(y,
+                iff(eq(var(x), var(y)), eq(var(y), var(x)))
+            ))
+        },
         // ∀X.∀Y.∀Z.(Eq(X, Y) ∧ Eq(Y, Z)) -> Eq(X, Z)
-        for_all(x, for_all(y, for_all(z,
-            imply(eq(var(x), var(y)) & eq(var(y), var(z)), eq(var(x), var(z)))
-        ))),
+        {
+            let x = &scope.allocate_silent_variable("X");
+            let y = &scope.allocate_silent_variable("Y");
+            let z = &scope.allocate_silent_variable("Z");
+            for_all(x, for_all(y, for_all(z,
+                imply(eq(var(x), var(y)) & eq(var(y), var(z)), eq(var(x), var(z)))
+            )))
+        },
         // ∀X.¬Eq(0, S(X))
-        for_all(x, !eq(value(0), successor(var(x)))),
+        {
+            let x = &scope.allocate_silent_variable("X");
+            for_all(x, !eq(value(0), successor(var(x))))
+        },
         // ∀X.∀Y.Eq(S(X), S(Y)) -> Eq(X, Y)
-        for_all(x, for_all(y, 
-            imply(eq(successor(var(x)), successor(var(y))), eq(var(x), var(y)))
-        )),
+        {
+            let x = &scope.allocate_silent_variable("X");
+            let y = &scope.allocate_silent_variable("Y");
+            for_all(x, for_all(y, 
+                imply(eq(successor(var(x)), successor(var(y))), eq(var(x), var(y)))
+            ))
+        },
         // ∀X.Eq(+(X, 0), X)
-        for_all(x, eq(sum(var(x), value(0)), var(x))),
+        {
+            let x = &scope.allocate_silent_variable("X");
+            for_all(x, eq(sum(var(x), value(0)), var(x)))
+        },
         // ∀X.∀Y.Eq(+(X, S(Y)), S(+(X, Y)))
-        for_all(x, for_all(y,
-            eq(sum(var(x), successor(var(y))), successor(sum(var(x), var(y))))
-        )),
+        {
+            let x = &scope.allocate_silent_variable("X");
+            let y = &scope.allocate_silent_variable("Y");
+            for_all(x, for_all(y,
+                eq(sum(var(x), successor(var(y))), successor(sum(var(x), var(y))))
+            ))
+        },
         // ∀X.Eq(*(X, 0), 0)
-        for_all(x, eq(product(var(x), value(0)), value(0))),
+        {
+            let x = &scope.allocate_silent_variable("X");
+            for_all(x, eq(product(var(x), value(0)), value(0)))
+        },
         // ∀X.∀Y.Eq(*(X, S(Y)), +(*(X, Y), X))
-        for_all(x, for_all(y,
-            eq(
-                product(var(x), successor(var(y))),
-                sum(product(var(x), var(y)), var(x))
+        {
+            let x = &scope.allocate_silent_variable("X");
+            let y = &scope.allocate_silent_variable("Y");
+            for_all(x, for_all(y,
+                eq(
+                    product(var(x), successor(var(y))),
+                    sum(product(var(x), var(y)), var(x))
+                )
+            ))
+        },
+        // ∀X.(∃Y.2Y = X) <-> Even(X)
+        {
+            let x = &scope.allocate_silent_variable("X");
+            let y = &scope.allocate_silent_variable("Y");
+            for_all(x,
+                iff(
+                    there_exist(y, eq(product(value(2), var(y)), var(x))),
+                    even(var(x))
+                )
             )
-        )),
-        // ∀X.(∃Y.2Y = X) -> Even(X)
-        for_all(x,
-            imply(there_exist(y, eq(product(value(2), var(y)), var(x))),
-                even(var(x))
-            )
-        ),
+        },
         // --- Situation ----------------------------------------------------
     ];
 
     // --- Goals -----------------------------------
     let goals = vec![
-        imply(even(var(x)) & even(var(y)),
-            even(sum(var(x), var(y)))
-        )
+        {
+            let x = &scope.allocate_silent_variable("X");
+            let y = &scope.allocate_silent_variable("Y");
+            for_all(x, for_all(y,
+                imply(even(var(x)) & even(var(y)),
+                    even(sum(var(x), var(y)))
+                )
+            ))
+        },
     ];
 
     // --------------------------------------------

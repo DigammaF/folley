@@ -40,12 +40,12 @@ impl Term {
         return build_term(scope, tokens);
     }
 
-    pub fn bound(&self, valuation: &HashMap<Identifier, Domain>) -> Term {
+    pub fn bound(&self, valuation: &HashMap<Identifier, Term>) -> Term {
         match self {
             Term::True|Term::False|Term::Value(_) => self.clone(),
             Term::Variable(variable_identifier)
                 => valuation.get(variable_identifier).map_or_else(
-                    || self.clone(), |value| Term::Value(value.clone())
+                    || self.clone(), |term| term.clone()
                 ),
             Term::Function(identifier, terms)
                 => Term::Function(*identifier, terms.iter().map(|term| term.bound(valuation)).collect())

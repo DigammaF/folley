@@ -1,6 +1,6 @@
 use std::{collections::HashMap, fmt::{self, Display}, ops::{BitAnd, BitOr, BitXor, Not}};
 
-use crate::{scope::Scope, term::Term, Domain, Identifier};
+use crate::{scope::Scope, term::Term, Identifier};
 
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -426,7 +426,7 @@ impl Formula {
         )
     }
 
-    pub fn bound(&self, valuation: &HashMap<Identifier, Domain>) -> Formula {
+    pub fn bound(&self, valuation: &HashMap<Identifier, Term>) -> Formula {
         match self {
             Formula::Term(term) => Formula::Term(term.bound(valuation)),
             Formula::Predicate(identifier, terms)
