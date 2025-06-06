@@ -52,22 +52,17 @@ impl Term {
         }
     }
 
-    pub fn evaluate(&self, scope: &Scope) -> Option<Term> {
+    pub fn evaluate(&self, scope: &Scope) -> Term {
         match self {
-            Term::True|Term::False|Term::Value(_) => Some(self.clone()),
+            Term::True|Term::False|Term::Value(_) => self.clone(),
             Term::Variable(identifier) => {
                 if let Some(value) = scope.get_value(identifier) {
-                    Some(Term::Value(value))
-                } else { None }
+                    Term::Value(value)
+                } else { Term::Variable(*identifier) }
             },
             Term::Function(identifier, arguments) => {
-                let mut argument_values: Vec<Term> = Vec::new();
-
-                for argument in arguments.iter() {
-                    if let Some(value) = argument.evaluate(scope) {
-                        argument_values.push(value);
-                    } else { return None }
-                }
+                let argument_terms: Vec<Term> = arguments.iter()
+                    .map(|term| term.evaluate(scope)).collect();
 
                 let function = scope.get_function(identifier);
                 if function.arity() != arguments.len() {
@@ -76,7 +71,15 @@ impl Term {
                         identifier, function.arity(), arguments.len()
                     );
                 }
-                return Some(function.apply(argument_values));
+
+                if argument_terms.iter().any(|term| !matches!(term, Term::Value(_))) {
+                    return Term::Function(*identifier, argument_terms);
+                }
+
+                let arguments: Vec<Domain> = argument_terms.into_iter()
+                    .map(|term| match term { Term::Value(value) => value, _ => panic!() }).collect();
+                
+                return Term::Value(function.apply(arguments));
             }
         }
     }
@@ -246,7 +249,7 @@ mod tests {
     fn test_build_term_function() {
         let mut scope = Scope::new();
         let var = scope.allocate_variable("X".to_string());
-        let func_id = scope.make_function(1, "f".to_string(), std::rc::Rc::new(|args| args[0].clone()));
+        let func_id = scope.make_function(1, "f".to_string(), std::rc::Rc::new(|args| args[0]));
         let input = "f ( X )";
         let term = build_term(&scope, tokenize(input)).unwrap();
         assert_eq!(term, Term::Function(func_id, vec![var]));
@@ -264,8 +267,8 @@ mod tests {
         let mut scope = Scope::new();
         let var_x = scope.allocate_variable("X".to_string());
         let var_y = scope.allocate_variable("Y".to_string());
-        let func_g = scope.make_function(1, "g".to_string(), std::rc::Rc::new(|args| args[0].clone()));
-        let func_f = scope.make_function(2, "f".to_string(), std::rc::Rc::new(|args| args[0].clone()));
+        let func_g = scope.make_function(1, "g".to_string(), std::rc::Rc::new(|args| args[0]));
+        let func_f = scope.make_function(2, "f".to_string(), std::rc::Rc::new(|args| args[0]));
 
         // f(g(X), Y)
         let input = "f ( g ( X ) , Y )";

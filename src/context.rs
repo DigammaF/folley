@@ -1,6 +1,6 @@
 use std::{collections::HashMap, fmt::{self, Display}, io::{stdin, stdout, Write}};
 
-use crate::{formula::{Formula, TRUE}, operation::Operation, scope::Scope, term::Term, Identifier};
+use crate::{formula::{BinOp, Formula, TRUE}, operation::Operation, scope::Scope, term::Term, Identifier};
 
 
 fn read_text(prompt: &str) -> String {
@@ -142,14 +142,10 @@ impl Context {
             Operation::Eval => {
                 let goal = self.goals.pop().ok_or("no goal in this context")?;
 
-                if let Some(new_goal) = goal.evaluate(&self.scope) {
-                    self.goals.push(new_goal);
-                    self.mutated = true;
-                    Ok("evaluated".to_string())
-                } else {
-                    self.goals.push(goal);
-                    Ok("not evaluable".to_string())
-                }
+                let new_goal = goal.evaluate(&self.scope);
+                self.goals.push(new_goal);
+                self.mutated = true;
+                Ok("evaluated".to_string())
             }
             Operation::QED => {
                 let goal = self.goals.pop().ok_or("no goal in this context")?;
@@ -182,14 +178,10 @@ impl Context {
             }
             Operation::Simplify(theorem_key) => {
                 let theorem = self.theorems.get(theorem_key).ok_or(format!("invalid theorem key: {theorem_key}"))?;
-
-                if let Some(new_theorem) = theorem.evaluate(&self.scope) {
-                    self.theorems.push(new_theorem);
-                    self.mutated = true;
-                    Ok("evaluated to a new theorem".to_string())
-                } else {
-                    Ok("not evaluable".to_string())
-                }
+                let new_theorem = theorem.evaluate(&self.scope);
+                self.theorems.push(new_theorem);
+                self.mutated = true;
+                Ok("evaluated to a new theorem".to_string())
             }
             Operation::Intro => {
                 let mut goal = self.goals.pop().ok_or("no goal in this context")?;
@@ -205,6 +197,18 @@ impl Context {
                 self.goals.push(goal);
                 if variables.len() > 0 { self.mutated = true; }
                 Ok(format!("introduced variables: {variables:?}"))
+            }
+            Operation::Weaken(theorem_key, new_theorem_binop) => {
+                let theorem = self.theorems.get(theorem_key).ok_or(format!("invalid theorem key: {theorem_key}"))?;
+                
+                if let Ok(theorem_binop) = BinOp::try_from(theorem.clone()) {
+                    if theorem_binop.base.weakens_to(&new_theorem_binop) {
+                        let new_theorem = Formula::make_from_binop(new_theorem_binop, theorem_binop.a, theorem_binop.b);
+                        self.theorems.push(new_theorem.evaluate(&self.scope));
+                        self.mutated = true;
+                        return Ok("introduced weaker theorem".to_string());
+                    } else { return Err(format!("{} cannot be weakened to {}", theorem_binop.base, new_theorem_binop)) }
+                } else { return Err(format!("outermost Formula is not a binary operation ({})", theorem.description()).to_string()); }
             }
         }
     }

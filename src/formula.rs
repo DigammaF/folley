@@ -194,171 +194,131 @@ impl BitXor for Formula {
 }
 
 impl Formula {
-    pub fn evaluate(&self, scope: &Scope) -> Option<Formula> {
+    pub fn evaluate(&self, scope: &Scope) -> Formula {
         match self {
-            Formula::Term(term) => term.evaluate(scope).map(|term| Formula::Term(term)),
+            Formula::Term(term) => Formula::Term(term.evaluate(scope)),
             Formula::Not(inner) => {
-                if let Some(inner) = inner.evaluate(scope) {
-                    match inner {
-                        TRUE => Some(FALSE),
-                        FALSE => Some(TRUE),
-                        Formula::Not(a) => Some(*a),
-                        _ => Some(!inner)
-                    }
-                } else { None }
+                match inner.evaluate(scope) {
+                    TRUE => FALSE,
+                    FALSE => TRUE,
+                    Formula::Not(a) => *a,
+                    inner => !inner
+                }
             }
             Formula::And(a, b) => {
-                if let Some(a) = a.evaluate(scope) {
-                    if let Some(b) = b.evaluate(scope) {
-                        match (&a, &b) {
-                            (&TRUE, &TRUE) => Some(TRUE),
-                            (&FALSE, _) | (_, &FALSE) => Some(FALSE),
-                            (&TRUE, f) | (f, &TRUE) => Some(f.clone()),
-                            _ => Some(a & b)
-                        }
-                    } else { None }
-                } else { None }
+                let a = a.evaluate(scope);
+                let b = b.evaluate(scope);
+                match (a, b) {
+                    (TRUE, TRUE) => TRUE,
+                    (FALSE, _) | (_, FALSE) => FALSE,
+                    (TRUE, f) | (f, TRUE) => f,
+                    (a, b) => a & b
+                }
             }
             Formula::Or(a, b) => {
-                if let Some(a) = a.evaluate(scope) {
-                    if let Some(b) = b.evaluate(scope) {
-                        match (&a, &b) {
-                            (&FALSE, &FALSE) => Some(FALSE),
-                            (&TRUE, _) | (_, &TRUE) => Some(TRUE),
-                            (&FALSE, f) | (f, &FALSE) => Some(f.clone()),
-                            _ => Some(a | b)
-                        }
-                    } else { None }
-                } else { None }
+                let a = a.evaluate(scope);
+                let b = b.evaluate(scope);
+                match (a, b) {
+                    (FALSE, FALSE) => FALSE,
+                    (TRUE, _) | (_, TRUE) => TRUE,
+                    (FALSE, f) | (f, FALSE) => f,
+                    (a, b) => a | b
+                }
             }
             Formula::Imply(a, b) => {
-                if let Some(a) = a.evaluate(scope) {
-                    if let Some(b) = b.evaluate(scope) {
-                        match (&a, &b) {
-                            (&FALSE, _) | (_, &TRUE) => Some(TRUE),
-                            (&TRUE, &FALSE) => Some(FALSE),
-                            (&TRUE, f) => Some(f.clone()),
-                            (a, b) if a == b => Some(TRUE),
-                            _ => Some(Formula::Imply(Box::new(a), Box::new(b)))
-                        }
-                    } else { None }
-                } else { None }
+                let a = a.evaluate(scope);
+                let b = b.evaluate(scope);
+                match (a, b) {
+                    (FALSE, _) | (_, TRUE) => TRUE,
+                    (TRUE, FALSE) => FALSE,
+                    (TRUE, f) => f,
+                    (a, b) if a == b => TRUE,
+                    (a, b) => Formula::Imply(Box::new(a), Box::new(b))
+                }
             }
             Formula::Nimply(a, b) => {
-                if let Some(a) = a.evaluate(scope) {
-                    if let Some(b) = b.evaluate(scope) {
-                        match (&a, &b) {
-                            (&FALSE, _) | (_, &TRUE) => Some(FALSE),
-                            (&TRUE, &FALSE) => Some(TRUE),
-                            (&TRUE, f) => Some(!f.clone()),
-                            (a, b) if a == b => Some(FALSE),
-                            _ => Some(Formula::Nimply(Box::new(a), Box::new(b)))
-                        }
-                    } else { None }
-                } else { None }
+                let a = a.evaluate(scope);
+                let b = b.evaluate(scope);
+                match (a, b) {
+                    (FALSE, _) | (_, TRUE) => FALSE,
+                    (TRUE, FALSE) => TRUE,
+                    (TRUE, f) => f,
+                    (a, b) if a == b => FALSE,
+                    (a, b) => Formula::Nimply(Box::new(a), Box::new(b))
+                }
             }
             Formula::Nand(a, b) => {
-                if let Some(a) = a.evaluate(scope) {
-                    if let Some(b) = b.evaluate(scope) {
-                        match (&a, &b) {
-                            (&TRUE, &TRUE) => Some(FALSE),
-                            (&FALSE, _) | (_, &FALSE) => Some(TRUE),
-                            (&TRUE, f) | (f, &TRUE) => Some(!f.clone()),
-                            _ => Some(Formula::Nand(Box::new(a), Box::new(b)))
-                        }
-                    } else { None }
-                } else { None }
+                let a = a.evaluate(scope);
+                let b = b.evaluate(scope);
+                match (a, b) {
+                    (TRUE, TRUE) => FALSE,
+                    (FALSE, _) | (_, FALSE) => TRUE,
+                    (TRUE, f) | (f, TRUE) => !f,
+                    (a, b) => Formula::Nand(Box::new(a), Box::new(b))
+                }
             }
             Formula::Nor(a, b) => {
-                if let Some(a) = a.evaluate(scope) {
-                    if let Some(b) = b.evaluate(scope) {
-                        match (&a, &b) {
-                            (&FALSE, &FALSE) => Some(TRUE),
-                            (&TRUE, _) | (_, &TRUE) => Some(FALSE),
-                            (&FALSE, f) | (f, &FALSE) => Some(!f.clone()),
-                            _ => Some(Formula::Nor(Box::new(a), Box::new(b)))
-                        }
-                    } else { None }
-                } else { None }
+                let a = a.evaluate(scope);
+                let b = b.evaluate(scope);
+                match (a, b) {
+                    (FALSE, FALSE) => TRUE,
+                    (TRUE, _) | (_, TRUE) => FALSE,
+                    (FALSE, f) | (f, FALSE) => !f,
+                    (a, b) => Formula::Nor(Box::new(a), Box::new(b))
+                }
             }
             Formula::Xor(a, b) => {
-                if let Some(a) = a.evaluate(scope) {
-                    if let Some(b) = b.evaluate(scope) {
-                        match (&a, &b) {
-                            (&TRUE, &TRUE) | (&FALSE, &FALSE) => Some(FALSE),
-                            (&TRUE, &FALSE) | (&FALSE, &TRUE) => Some(TRUE),
-                            (&TRUE, f) | (f, &TRUE) => Some(!f.clone()),
-                            (&FALSE, f) | (f, &FALSE) => Some(f.clone()),
-                            (a, b) if a == b => Some(FALSE),
-                            _ => Some(Formula::Xor(Box::new(a), Box::new(b)))
-                        }
-                    } else { None }
-                } else { None }
+                let a = a.evaluate(scope);
+                let b = b.evaluate(scope);
+                match (a, b) {
+                    (TRUE, TRUE) | (FALSE, FALSE) => FALSE,
+                    (TRUE, FALSE) | (FALSE, TRUE) => TRUE,
+                    (TRUE, f) | (f, TRUE) => !f,
+                    (FALSE, f) | (f, FALSE) => f,
+                    (a, b) if a == b => FALSE,
+                    (a, b) => Formula::Xor(Box::new(a), Box::new(b))
+                }
             }
             Formula::Nxor(a, b) => {
-                if let Some(a) = a.evaluate(scope) {
-                    if let Some(b) = b.evaluate(scope) {
-                        match (&a, &b) {
-                            (&TRUE, &TRUE) | (&FALSE, &FALSE) => Some(TRUE),
-                            (&TRUE, &FALSE) | (&FALSE, &TRUE) => Some(FALSE),
-                            (&TRUE, f) | (f, &TRUE) => Some(f.clone()),
-                            (&FALSE, f) | (f, &FALSE) => Some(!f.clone()),
-                            (a, b) if a == b => Some(TRUE),
-                            _ => Some(Formula::Nxor(Box::new(a), Box::new(b)))
-                        }
-                    } else { None }
-                } else { None }
+                let a = a.evaluate(scope);
+                let b = b.evaluate(scope);
+                match (a, b) {
+                    (TRUE, TRUE) | (FALSE, FALSE) => TRUE,
+                    (TRUE, FALSE) | (FALSE, TRUE) => FALSE,
+                    (TRUE, f) | (f, TRUE) => f,
+                    (FALSE, f) | (f, FALSE) => !f,
+                    (a, b) if a == b => TRUE,
+                    (a, b) => Formula::Nxor(Box::new(a), Box::new(b))
+                }
             }
-            Formula::A(a, _) => {
-                if let Some(a) = a.evaluate(scope) {
-                    Some(a)
-                } else { None }
-            }
-            Formula::B(_, b) => {
-                if let Some(b) = b.evaluate(scope) {
-                    Some(b)
-                } else { None }
-            }
-            Formula::NotA(a, _) => {
-                if let Some(a) = (!*a.clone()).evaluate(scope) {
-                    Some(a)
-                } else { None }
-            }
-            Formula::NotB(_, b) => {
-                if let Some(b) = (!*b.clone()).evaluate(scope) {
-                    Some(b)
-                } else { None }
-            }
+            Formula::A(a, _) => { a.evaluate(scope) }
+            Formula::B(_, b) => { b.evaluate(scope) }
+            Formula::NotA(a, _) => { !a.evaluate(scope) }
+            Formula::NotB(_, b) => { !b.evaluate(scope) }
             Formula::Rimply(b, a) => {
-                if let Some(a) = a.evaluate(scope) {
-                    if let Some(b) = b.evaluate(scope) {
-                        match (&a, &b) {
-                            (&FALSE, _) | (_, &TRUE) => Some(TRUE),
-                            (&TRUE, &FALSE) => Some(FALSE),
-                            (&TRUE, f) => Some(f.clone()),
-                            (a, b) if a == b => Some(TRUE),
-                            _ => Some(Formula::Rimply(Box::new(b), Box::new(a)))
-                        }
-                    } else { None }
-                } else { None }
+                let a = a.evaluate(scope);
+                let b = b.evaluate(scope);
+                match (a, b) {
+                    (FALSE, _) | (_, TRUE) => TRUE,
+                    (TRUE, FALSE) => FALSE,
+                    (TRUE, f) => f,
+                    (a, b) if a == b => TRUE,
+                    (a, b) => Formula::Rimply(Box::new(b), Box::new(a))
+                }
             }
             Formula::Nrimply(a, b) => {
-                if let Some(a) = a.evaluate(scope) {
-                    if let Some(b) = b.evaluate(scope) {
-                        match (&a, &b) {
-                            (&FALSE, _) | (_, &TRUE) => Some(FALSE),
-                            (&TRUE, &FALSE) => Some(TRUE),
-                            (&TRUE, f) => Some(!f.clone()),
-                            (a, b) if a == b => Some(FALSE),
-                            _ => Some(Formula::Nrimply(Box::new(b), Box::new(a)))
-                        }
-                    } else { None }
-                } else { None }
+                let a = a.evaluate(scope);
+                let b = b.evaluate(scope);
+                match (a, b) {
+                    (FALSE, _) | (_, TRUE) => FALSE,
+                    (TRUE, FALSE) => TRUE,
+                    (TRUE, f) => !f,
+                    (a, b) if a == b => FALSE,
+                    (a, b) => Formula::Nrimply(Box::new(b), Box::new(a))
+                }
             }
-            Formula::ForAll(identifier, f)
-                => f.evaluate(scope).map(|f| Formula::ForAll(*identifier, Box::new(f))),
-            Formula::ThereExist(identifier, f)
-                => f.evaluate(scope).map(|f| Formula::ThereExist(*identifier, Box::new(f))),
+            Formula::ForAll(identifier, f) => Formula::ForAll(*identifier, Box::new(f.evaluate(scope))),
+            Formula::ThereExist(identifier, f) => Formula::ThereExist(*identifier, Box::new(f.evaluate(scope))),
             Formula::Predicate(identifier, terms) => {
                 let predicate = scope.get_predicate(identifier);
                 
@@ -369,15 +329,8 @@ impl Formula {
                     );
                 }
 
-                let mut term_values: Vec<Term> = Vec::new();
-
-                for term in terms.iter() {
-                    if let Some(value) = term.evaluate(scope) {
-                        term_values.push(value);
-                    } else { return None; }
-                }
-
-                return Some(Formula::Predicate(*identifier, term_values));
+                let term_values: Vec<Term> = terms.iter().map(|term| term.evaluate(scope)).collect();
+                return Formula::Predicate(*identifier, term_values);
             }
         }
     }
@@ -480,6 +433,168 @@ impl Formula {
             Formula::NotB(_, _) => "NegativeSecond",
             Formula::Rimply(_, _) => "ReverseImplication",
             Formula::Nrimply(_, _) => "NegativeReverseImplication",
+        }
+    }
+
+    pub fn make_from_binop(base: BinOpBase, a: Formula, b: Formula) -> Formula {
+        match base {
+            BinOpBase::And => Formula::And(Box::new(a), Box::new(b)),
+            BinOpBase::Or => Formula::Or(Box::new(a), Box::new(b)),
+            BinOpBase::Imply => Formula::Imply(Box::new(a), Box::new(b)),
+            BinOpBase::Nimply => Formula::Nimply(Box::new(a), Box::new(b)),
+            BinOpBase::Nand => Formula::Nand(Box::new(a), Box::new(b)),
+            BinOpBase::Nor => Formula::Nor(Box::new(a), Box::new(b)),
+            BinOpBase::Xor => Formula::Xor(Box::new(a), Box::new(b)),
+            BinOpBase::Nxor => Formula::Nxor(Box::new(a), Box::new(b)),
+            BinOpBase::A => Formula::A(Box::new(a), Box::new(b)),
+            BinOpBase::B => Formula::B(Box::new(a), Box::new(b)),
+            BinOpBase::NotA => Formula::NotA(Box::new(a), Box::new(b)),
+            BinOpBase::NotB => Formula::NotB(Box::new(a), Box::new(b)),
+            BinOpBase::Rimply => Formula::Rimply(Box::new(a), Box::new(b)),
+            BinOpBase::Nrimply => Formula::Nrimply(Box::new(a), Box::new(b)),
+            BinOpBase::True => TRUE,
+            BinOpBase::False => FALSE,
+        }
+    }
+
+    pub fn weakens_to(&self, formula: &Formula) -> Option<bool> {
+        if let (Ok(a), Ok(b)) = (BinOp::try_from(self.clone()), BinOp::try_from(formula.clone())) {
+            if a.a != b.a || a.b != b.b { return None; }
+            return Some(a.base.weakens_to(&b.base));
+        } else { return None; }
+    }
+}
+
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum BinOpBase {
+    True, False,
+    And, Or, Imply, Nimply, Nand, Nor, Xor, Nxor, A, B, NotA, NotB, Rimply, Nrimply
+}
+
+impl Display for BinOpBase {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s = match self {
+            BinOpBase::True => "True",
+            BinOpBase::False => "False",
+            BinOpBase::And => "And",
+            BinOpBase::Or => "Or",
+            BinOpBase::Imply => "Imply",
+            BinOpBase::Nimply => "NegativeImply",
+            BinOpBase::Nand => "NegativeAnd",
+            BinOpBase::Nor => "NegativeOr",
+            BinOpBase::Xor => "ExclusiveOr",
+            BinOpBase::Nxor => "NegativeExclusiveOr",
+            BinOpBase::A => "A",
+            BinOpBase::B => "B",
+            BinOpBase::NotA => "NotA",
+            BinOpBase::NotB => "NotB",
+            BinOpBase::Rimply => "ReverseImply",
+            BinOpBase::Nrimply => "NegativeReverseImply",
+        };
+        write!(f, "{}", s)
+    }
+}
+
+pub struct BinOp { pub base: BinOpBase, pub a: Formula, pub b: Formula }
+
+impl TryFrom<Formula> for BinOp {
+    type Error = ();
+
+    fn try_from(value: Formula) -> Result<Self, Self::Error> {
+        match value {
+            Formula::And(a, b) => Ok(BinOp { base: BinOpBase::And, a: *a, b: *b }),
+            Formula::Or(a, b) => Ok(BinOp { base: BinOpBase::Or, a: *a, b: *b }),
+            Formula::Imply(a, b) => Ok(BinOp { base: BinOpBase::Imply, a: *a, b: *b }),
+            Formula::Nimply(a, b) => Ok(BinOp { base: BinOpBase::Nimply, a: *a, b: *b }),
+            Formula::Nand(a, b) => Ok(BinOp { base: BinOpBase::Nand, a: *a, b: *b }),
+            Formula::Nor(a, b) => Ok(BinOp { base: BinOpBase::Nor, a: *a, b: *b }),
+            Formula::Xor(a, b) => Ok(BinOp { base: BinOpBase::Xor, a: *a, b: *b }),
+            Formula::Nxor(a, b) => Ok(BinOp { base: BinOpBase::Nxor, a: *a, b: *b }),
+            Formula::A(a, b) => Ok(BinOp { base: BinOpBase::A, a: *a, b: *b }),
+            Formula::B(a, b) => Ok(BinOp { base: BinOpBase::B, a: *a, b: *b }),
+            Formula::NotA(a, b) => Ok(BinOp { base: BinOpBase::NotA, a: *a, b: *b }),
+            Formula::NotB(a, b) => Ok(BinOp { base: BinOpBase::NotB, a: *a, b: *b }),
+            Formula::Rimply(a, b) => Ok(BinOp { base: BinOpBase::Rimply, a: *a, b: *b }),
+            Formula::Nrimply(a, b) => Ok(BinOp { base: BinOpBase::Nrimply, a: *a, b: *b }),
+            _ => Err(()),
+        }
+    }
+}
+
+impl TryFrom<&str> for BinOpBase {
+    type Error = ();
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        match value {
+            "and" | "∧" | "&" => Ok(BinOpBase::And),
+            "or" | "∨" | "|" => Ok(BinOpBase::Or),
+            "imply" | "→" | "->" => Ok(BinOpBase::Imply),
+            "nimply" | "↛" | "-/>" => Ok(BinOpBase::Nimply),
+            "nand" | "↑" | "!&" => Ok(BinOpBase::Nand),
+            "nor" | "↓" | "!|" => Ok(BinOpBase::Nor),
+            "xor" | "⊕" | "x|" => Ok(BinOpBase::Xor),
+            "nxor" | "⊙" | "!x|" => Ok(BinOpBase::Nxor),
+            "a" | "left" => Ok(BinOpBase::A),
+            "b" | "right" => Ok(BinOpBase::B),
+            "nota" | "!a" | "!left" => Ok(BinOpBase::NotA),
+            "notb" | "!b" | "!reight" => Ok(BinOpBase::NotB),
+            "rimply" | "←" | "<-" => Ok(BinOpBase::Rimply),
+            "nrimply" | "↚" | "</-" => Ok(BinOpBase::Nrimply),
+            _ => Err(()),
+        }
+    }
+}
+
+impl BinOpBase {
+    pub fn weakens_to(&self, weaker: &BinOpBase) -> bool {
+        match self {
+            BinOpBase::Nor => match weaker {
+                BinOpBase::NotA|BinOpBase::NotB|BinOpBase::Nand|BinOpBase::Nxor|BinOpBase::Imply|BinOpBase::Rimply|BinOpBase::True|BinOpBase::Nor => true,
+                _ => false
+            },
+            BinOpBase::Nrimply => match weaker {
+                BinOpBase::NotA|BinOpBase::Xor|BinOpBase::Nand|BinOpBase::B|BinOpBase::Imply|BinOpBase::Or|BinOpBase::True|BinOpBase::Nrimply => true,
+                _ => false
+            },
+            BinOpBase::Nimply => match weaker {
+                BinOpBase::NotB|BinOpBase::Xor|BinOpBase::Nand|BinOpBase::A|BinOpBase::Rimply|BinOpBase::Or|BinOpBase::True|BinOpBase::Nimply => true,
+                _ => false
+            },
+            BinOpBase::And => match weaker {
+                BinOpBase::Nxor|BinOpBase::B|BinOpBase::Imply|BinOpBase::A|BinOpBase::Rimply|BinOpBase::Or|BinOpBase::True|BinOpBase::And => true,
+                _ => false
+            },
+            BinOpBase::NotA => match weaker {
+                BinOpBase::Nand|BinOpBase::Imply|BinOpBase::True|BinOpBase::NotA => true,
+                _ => false
+            },
+            BinOpBase::NotB => match weaker {
+                BinOpBase::Nand|BinOpBase::Rimply|BinOpBase::True|BinOpBase::NotB => true,
+                _ => false
+            }
+            BinOpBase::Xor => match weaker {
+                BinOpBase::Nand|BinOpBase::Or|BinOpBase::True|BinOpBase::Xor => true,
+                _ => false
+            },
+            BinOpBase::Nxor => match weaker {
+                BinOpBase::Imply|BinOpBase::Rimply|BinOpBase::True|BinOpBase::Nxor => true,
+                _ => false
+            },
+            BinOpBase::B => match weaker {
+                BinOpBase::Imply|BinOpBase::Or|BinOpBase::True|BinOpBase::B => true,
+                _ => false
+            }
+            BinOpBase::A => match weaker {
+                BinOpBase::Rimply|BinOpBase::Or|BinOpBase::True|BinOpBase::A => true,
+                _ => false
+            },
+            BinOpBase::Nand|BinOpBase::Imply|BinOpBase::Rimply|BinOpBase::Or => match weaker {
+                BinOpBase::True => true,
+                _ if self == weaker => true,
+                _ => false
+            },
+            BinOpBase::False => true,
+            BinOpBase::True => matches!(weaker, BinOpBase::True),
         }
     }
 }

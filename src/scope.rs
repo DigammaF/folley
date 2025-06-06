@@ -289,7 +289,7 @@ impl Scope {
         return identifier;
     }
 
-    pub fn make_function(&mut self, arity: usize, repr: String, application: Rc<dyn Fn(Vec<Term>) -> Term>) -> Identifier {
+    pub fn make_function(&mut self, arity: usize, repr: String, application: Rc<dyn Fn(Vec<Domain>) -> Domain>) -> Identifier {
         let identifier = self.allocate();
         self.functions.insert(identifier, Function::new(arity, application));
         self.bind_repr(identifier, repr);

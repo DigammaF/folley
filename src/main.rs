@@ -67,37 +67,19 @@ fn main() {
     // the successor function, computes +1
     let successor_id = scope.make_function(
         1, "S".into(),
-        Rc::new(|terms| {
-            if let Term::Value(value) = terms.first().unwrap() {
-                Term::Value(*value + 1)
-            } else { panic!() }
-        })
+        Rc::new(|terms| terms.first().unwrap() + 1)
     );
     let successor = |term: Term| { f(successor_id, vec![&term]) };
 
     let sum_id = scope.make_function(
         2, "+".into(),
-        Rc::new(|terms| {
-            let mut terms = terms.into_iter();
-            let a = terms.next().unwrap();
-            let b = terms.next().unwrap();
-            if let (Term::Value(a), Term::Value(b)) = (a, b) {
-                Term::Value(a + b)
-            } else { panic!() }
-        })
+        Rc::new(|terms| terms.first().unwrap() + terms.last().unwrap())
     );
     let sum = |a: Term, b: Term| { f(sum_id, vec![&a, &b]) };
 
     let product_id = scope.make_function(
         2, "*".into(),
-        Rc::new(|terms| {
-            let mut terms = terms.into_iter();
-            let a = terms.next().unwrap();
-            let b = terms.next().unwrap();
-            if let (Term::Value(a), Term::Value(b)) = (a, b) {
-                Term::Value(a * b)
-            } else { panic!() }
-        })
+        Rc::new(|terms| terms.first().unwrap() * terms.last().unwrap())
     );
     let product = |a: Term, b: Term| { f(product_id, vec![&a, &b]) };
 
@@ -185,8 +167,8 @@ fn main() {
     // --- Goals -----------------------------------
     let goals = vec![
         {
-            let x = &scope.allocate_silent_variable("X");
-            let y = &scope.allocate_silent_variable("Y");
+            let x = &scope.allocate_silent_variable("A");
+            let y = &scope.allocate_silent_variable("B");
             for_all(x, for_all(y,
                 imply(even(var(x)) & even(var(y)),
                     even(sum(var(x), var(y)))

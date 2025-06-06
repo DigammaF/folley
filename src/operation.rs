@@ -1,7 +1,7 @@
 use once_cell::sync::Lazy;
 use regex::Regex;
 
-use crate::{scope::Scope, term::Term};
+use crate::{formula::BinOpBase, scope::Scope, term::Term};
 
 
 static IDENTIFIER_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"\d+").unwrap());
@@ -18,6 +18,7 @@ static CONTRADICT_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"contradict").unwra
 static COMBINE_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"combine *(?<a>\d+) *with *(?<b>\d+) *").unwrap());
 static SIMPLIFY_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"simplify *(?<theorem>\d+) *").unwrap());
 static INTRO_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"intro").unwrap());
+static WEAKEN_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"weaken (?<theorem>\d+) to (?<target>\w+)").unwrap());
 
 #[derive(Debug)]
 pub enum Operation {
@@ -30,7 +31,8 @@ pub enum Operation {
     Contradict,
     Combine(usize, usize),
     Simplify(usize),
-    Intro
+    Intro,
+    Weaken(usize, BinOpBase)
 }
 
 impl Operation {
@@ -48,14 +50,14 @@ impl Operation {
 
             if let Ok(key) = captures["theorem"].parse::<usize>() {
                 Ok(Operation::Instantiate(key, terms))
-            } else { Err(format!("Cannot parse {} as a key", &captures["theorem"]).to_string()) }
+            } else { Err(format!("Cannot parse '{}' as a key", &captures["theorem"]).to_string()) }
 
         } else if let Some(captures) = MODUS_PONENS_RE.captures(source) {
             
             if captures["theorem"].starts_with("G") { Ok(Operation::ModusPonensGoal) } else {
                 if let Ok(key) = captures["theorem"].parse::<usize>() {
                     Ok(Operation::ModusPonens(key))
-                } else { Err(format!("Cannot parse {} as a key", &captures["theorem"]).to_string()) }
+                } else { Err(format!("Cannot parse '{}' as a key", &captures["theorem"]).to_string()) }
             }    
         
         } else if let Some(captures) = NAME_RE.captures(source) {
@@ -75,7 +77,7 @@ impl Operation {
 
             if let Ok(key) = captures["theorem"].parse::<usize>() {
                 Ok(Operation::Rewrite(key))
-            } else { Err(format!("Cannot parse {} as a key", &captures["theorem"]).to_string()) } 
+            } else { Err(format!("Cannot parse '{}' as a key", &captures["theorem"]).to_string()) } 
 
         } else if EVAL_RE.is_match(&source) {
 
@@ -94,18 +96,26 @@ impl Operation {
             if let Ok(a) = captures["a"].parse::<usize>() {
                 if let Ok(b) = captures["b"].parse::<usize>() {
                     Ok(Operation::Combine(a, b))
-                } else { Err(format!("Cannot parse {} as a key", &captures["b"]).to_string()) }
-            } else { Err(format!("Cannot parse {} as a key", &captures["a"]).to_string()) }
+                } else { Err(format!("Cannot parse '{}' as a key", &captures["b"]).to_string()) }
+            } else { Err(format!("Cannot parse '{}' as a key", &captures["a"]).to_string()) }
 
         } else if let Some(captures) = SIMPLIFY_RE.captures(source) {
 
             if let Ok(theorem) = captures["theorem"].parse::<usize>() {
                 Ok(Operation::Simplify(theorem))
-            } else { Err(format!("Cannot parse {} as a key", &captures["theorem"]).to_string()) }
+            } else { Err(format!("Cannot parse '{}' as a key", &captures["theorem"]).to_string()) }
 
         } else if INTRO_RE.is_match(&source) {
 
             Ok(Operation::Intro)
+
+        } else if let Some(captures) = WEAKEN_RE.captures(source) {
+
+            if let Ok(theorem) = captures["theorem"].parse::<usize>() {
+                if let Ok(binop) = BinOpBase::try_from(&captures["target"]) {
+                    Ok(Operation::Weaken(theorem, binop))
+                } else { Err(format!("Cannot parse '{}' as a binary operator", &captures["target"]).to_string()) }
+            } else { Err(format!("Cannot parse '{}' as a key", &captures["theorem"]).to_string()) }
 
         } else { Err("Couldn't parse source".to_string()) }
     }
