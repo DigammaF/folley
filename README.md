@@ -178,13 +178,13 @@ fn main() {
     
     // --- Predicates -----------------------------
     // the '=' predicate
-    let eq_id = scope.make_predicate(2, "Eq".into());
+    let eq_id = scope.make_predicate(2, "Eq");
     let eq = |a: Term, b: Term| { p(eq_id, vec![&a, &b]) };
 
     // --- Functions ------------------------------
     // the successor function, computes +1
     let successor_id = scope.make_function(
-        1, "S".into(),
+        1, "S",
         Rc::new(|terms| terms.first().unwrap() + 1)
     );
     let successor = |term: Term| { f(successor_id, vec![&term]) };

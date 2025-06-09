@@ -240,7 +240,7 @@ mod tests {
     #[test]
     fn test_build_term_variable() {
         let mut scope = Scope::new();
-        let var = scope.allocate_variable("X".to_string());
+        let var = scope.allocate_variable("X");
         let term = build_term(&scope, tokenize("X")).unwrap();
         assert_eq!(term, var);
     }
@@ -248,8 +248,8 @@ mod tests {
     #[test]
     fn test_build_term_function() {
         let mut scope = Scope::new();
-        let var = scope.allocate_variable("X".to_string());
-        let func_id = scope.make_function(1, "f".to_string(), std::rc::Rc::new(|args| args[0]));
+        let var = scope.allocate_variable("X");
+        let func_id = scope.make_function(1, "f", std::rc::Rc::new(|args| args[0]));
         let input = "f ( X )";
         let term = build_term(&scope, tokenize(input)).unwrap();
         assert_eq!(term, Term::Function(func_id, vec![var]));
@@ -265,10 +265,10 @@ mod tests {
     #[test]
     fn test_build_term_nested_functions() {
         let mut scope = Scope::new();
-        let var_x = scope.allocate_variable("X".to_string());
-        let var_y = scope.allocate_variable("Y".to_string());
-        let func_g = scope.make_function(1, "g".to_string(), std::rc::Rc::new(|args| args[0]));
-        let func_f = scope.make_function(2, "f".to_string(), std::rc::Rc::new(|args| args[0]));
+        let var_x = scope.allocate_variable("X");
+        let var_y = scope.allocate_variable("Y");
+        let func_g = scope.make_function(1, "g", std::rc::Rc::new(|args| args[0]));
+        let func_f = scope.make_function(2, "f", std::rc::Rc::new(|args| args[0]));
 
         // f(g(X), Y)
         let input = "f ( g ( X ) , Y )";

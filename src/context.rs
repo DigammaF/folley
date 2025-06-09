@@ -191,7 +191,7 @@ impl Context {
                     goal = *inner;
                     variables.push(self.scope.format_term(&Term::Variable(identifier)));
 
-                    if let Some(repr) = self.scope.get_repr(&identifier) { self.scope.set_id_for_repr(repr, identifier); }
+                    if let Some(repr) = self.scope.get_repr(&identifier) { self.scope.set_id_for_repr(&repr, identifier); }
                 }
 
                 self.goals.push(goal);

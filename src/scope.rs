@@ -240,15 +240,15 @@ impl Scope {
         } else { panic!("Can't allocate: no more space in identifier space"); }
     }
 
-    pub fn bind_repr(&mut self, identifier: Identifier, repr: String) {
+    pub fn bind_repr(&mut self, identifier: Identifier, repr: &str) {
         if let Some(existing_repr) = self.reprs.get(&identifier) { panic!("{identifier} already bound to {existing_repr}, cannot bind to {repr}"); }
-        self.reprs.insert(identifier, repr.clone());
-        self.rev_reprs.insert(repr, identifier);
+        self.reprs.insert(identifier, repr.into());
+        self.rev_reprs.insert(repr.into(), identifier);
     }
 
-    pub fn set_id_for_repr(&mut self, repr: String, identifier: Identifier) {
-        if let Some(existing_id) = self.rev_reprs.get(&repr) { panic!("{repr} already bound to {existing_id}, cannot bind to {identifier}"); }
-        self.rev_reprs.insert(repr, identifier);
+    pub fn set_id_for_repr(&mut self, repr: &str, identifier: Identifier) {
+        if let Some(existing_id) = self.rev_reprs.get(repr) { panic!("{repr} already bound to {existing_id}, cannot bind to {identifier}"); }
+        self.rev_reprs.insert(repr.into(), identifier);
     }
 
     pub fn get_identifier(&self, repr: &str) -> Option<Identifier> { self.rev_reprs.get(repr).cloned() }
@@ -267,7 +267,7 @@ impl Scope {
         return Term::Variable(identifier);
     }
 
-    pub fn allocate_variable(&mut self, repr: String) -> Term {
+    pub fn allocate_variable(&mut self, repr: &str) -> Term {
         let identifier = self.allocate();
         self.variables.insert(identifier);
         self.bind_repr(identifier, repr);
@@ -279,17 +279,17 @@ impl Scope {
     }
 
     pub fn allocate_variables(&mut self, count: Identifier, repr: fn(Identifier) -> String) -> Vec<Term> {
-        (0..count).map(|n| self.allocate_variable(repr(n))).collect()
+        (0..count).map(|n| self.allocate_variable(&repr(n))).collect()
     }
 
-    pub fn make_predicate(&mut self, arity: usize, repr: String) -> Identifier {
+    pub fn make_predicate(&mut self, arity: usize, repr: &str) -> Identifier {
         let identifier = self.allocate();
         self.predicates.insert(identifier, Predicate::new(arity));
         self.bind_repr(identifier, repr);
         return identifier;
     }
 
-    pub fn make_function(&mut self, arity: usize, repr: String, application: Rc<dyn Fn(Vec<Domain>) -> Domain>) -> Identifier {
+    pub fn make_function(&mut self, arity: usize, repr: &str, application: Rc<dyn Fn(Vec<Domain>) -> Domain>) -> Identifier {
         let identifier = self.allocate();
         self.functions.insert(identifier, Function::new(arity, application));
         self.bind_repr(identifier, repr);

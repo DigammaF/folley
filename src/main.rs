@@ -57,28 +57,28 @@ fn main() {
 
     // --- Predicates -----------------------------
     // the '=' predicate
-    let eq_id = scope.make_predicate(2, "Eq".into());
+    let eq_id = scope.make_predicate(2, "Eq");
     let eq = |a: Term, b: Term| { p(eq_id, vec![&a, &b]) };
 
-    let even_id = scope.make_predicate(1, "Even".into());
+    let even_id = scope.make_predicate(1, "Even");
     let even = |a: Term| { p(even_id, vec![&a]) };
 
     // --- Functions ------------------------------
     // the successor function, computes +1
     let successor_id = scope.make_function(
-        1, "S".into(),
+        1, "S",
         Rc::new(|terms| terms.first().unwrap() + 1)
     );
     let successor = |term: Term| { f(successor_id, vec![&term]) };
 
     let sum_id = scope.make_function(
-        2, "+".into(),
+        2, "+",
         Rc::new(|terms| terms.first().unwrap() + terms.last().unwrap())
     );
     let sum = |a: Term, b: Term| { f(sum_id, vec![&a, &b]) };
 
     let product_id = scope.make_function(
-        2, "*".into(),
+        2, "*",
         Rc::new(|terms| terms.first().unwrap() * terms.last().unwrap())
     );
     let product = |a: Term, b: Term| { f(product_id, vec![&a, &b]) };
