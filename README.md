@@ -120,6 +120,7 @@ Defining axioms, values, predicates, functions and goals is done through modifyi
 The `notation` module provides the following helper functions, to make it convenient to construct common logic gates.
 
 ```rust
+pub fn var(v: &Term) -> Term
 fn value(v: Domain) -> Term
 fn term(t: &Term) -> Formula
 fn imply(a: Formula, b: Formula) -> Formula
@@ -174,31 +175,28 @@ fn main() {
     use crate::notation::*;
 
     let mut scope = Scope::new();
-
-    // --- Variables ------------------------------
-    // a general purpose variable and its string representation
-    let x = scope.allocate_variable("X".into());
     
     // --- Predicates -----------------------------
     // the '=' predicate
-    let eq = scope.make_predicate(2, "Eq".into());
+    let eq_id = scope.make_predicate(2, "Eq".into());
+    let eq = |a: Term, b: Term| { p(eq_id, vec![&a, &b]) };
 
     // --- Functions ------------------------------
     // the successor function, computes +1
-    let successor = scope.make_function(
+    let successor_id = scope.make_function(
         1, "S".into(),
-        Rc::new(|terms| {
-            if let Term::Value(value) = terms.first().unwrap() {
-                Term::Value(*value + 1)
-            } else { panic!() }
-        })
+        Rc::new(|terms| terms.first().unwrap() + 1)
     );
+    let successor = |term: Term| { f(successor_id, vec![&term]) };
 
     // --- Theorems -------------------------------
     let theorems = vec![
         // --- Axioms -------------------------------------------------------
         // ∀X.Eq(X, X)
-        for_all(&x, p(eq, vec![&x, &x])),
+        {
+            let x = &scope.allocate_silent_variable("X");
+            for_all(x, eq(var(x), var(x)))
+        },
         // --- Situation ----------------------------------------------------
     ];
 
@@ -206,7 +204,7 @@ fn main() {
     let goals = vec![
         // 2 = 1 + 1
         // Eq(2, S(1))
-        p(eq, vec![&value(2), &f(successor, vec![&value(1)])]),
+        eq(value(2), successor(value(1))),
     ];
 
     // --------------------------------------------
